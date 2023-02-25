@@ -21,12 +21,12 @@ const renderCountry = function (data, className = '') {
 
   countriesContainer.insertAdjacentHTML('beforeend', html);
 
-  //countriesContainer.style.opacity = 1;//put into finally method
+  countriesContainer.style.opacity = 1; //put into finally method
 };
 
 const renderError = function (msg) {
   countriesContainer.insertAdjacentText('beforeend', msg);
-  //countriesContainer.style.opacity = 1; //to see the container
+  countriesContainer.style.opacity = 1; //to see the container
   //put into finally method
 };
 
@@ -459,7 +459,7 @@ const whereAmI = function (lat, lng) {
 //whereAmI(52.508, 13.381);
 //whereAmI(19.037, 72.873);//India (first instance is British Indian...)
 whereAmI(-33.933, 18.474);
-*/
+
 
 //////////////////////////////////////////////////////////////
 //EVENT LOOP IN PRACTICE
@@ -467,6 +467,13 @@ console.log('Test start!');
 setTimeout(() => console.log('0 sec timer!'), 0);
 //create a promise that is imediately resolved
 Promise.resolve('Resolved promise 1').then(res => console.log(res));
+
+Promise.resolve('Resolved promise 2').then(res => {
+  //simulate a task that will take a long time
+  for (let i = 0; i < 1000000000; i++) {}
+  console.log(res);
+});
+
 console.log('Test end!');
 
 //code outside any callback will run first:
@@ -474,4 +481,251 @@ console.log('Test end!');
 //Test end!
 //next two finish at same time:
 //Resolved promise 1 //micro-tasks queue (priority over callback queue)
+//Resolved promise 2
 //0 sec timer!
+
+//can not do high precision using JS timers
+
+
+///////////////////////////////////////////////////////////////
+//BUILDING A SIMPLE PROMISE
+//promise = special object in JS
+//use promise constructor
+//takes one argument = executor function (takes in resolve & reject)
+const lotteryPromise = new Promise(function (resolve, reject) {
+  console.log('Lottery draw is happening!');
+  setTimeout(function () {
+    //contains asynchronous behavior
+    //produce result value = future value of promise
+    if (Math.random() >= 0.5) {
+      //fulfilled promise
+      resolve('You WIN!!!');
+    } else {
+      reject(new Error('You lost your money :('));
+    }
+  }, 2000);
+});
+
+lotteryPromise.then(res => console.log(res)).catch(err => console.error(err));
+
+//in practice, most of the time all we actually do is to consume promises
+//usually only build promises to basically wrap old callback based functions into promises
+//process called PROMISIFYING:
+//convert callback based asynchronous behavior to promise based
+//PROMISIFYING SETTIMEOUT
+const wait = function (seconds) {
+  //executor function: only needs resolve (not able to be rejected)
+  return new Promise(function (resolve) {
+    setTimeout(resolve, seconds * 1000);
+  });
+};
+//consume promise (with chaining)
+wait(2)
+  .then(() => {
+    console.log('I waited for 2 seconds.');
+    return wait(1);
+  })
+  .then(() => console.log('I waited for 1 second.'));
+
+//callback hell (nested callbacks)
+//harder to understand & harder to work with = more bugs
+//setTimeout(() => {
+//  console.log('1 second passed');
+//  setTimeout(() => {
+//    console.log('2 second passed');
+//    setTimeout(() => {
+//      console.log('3 second passed');
+//      setTimeout(() => {
+//        console.log('4 second passed');
+//      }, 1000);
+//    }, 1000);
+//  }, 1000);
+//}, 1000);
+//same as:
+//without callback hell
+//wait(1)
+//  .then(() => {
+//    console.log('1 second passed');
+//    return wait(1);
+//  })
+//  .then(() => {
+//    console.log('2 seconds passed');
+//    return wait(1);
+//  })
+//  .then(() => {
+//    console.log('3 seconds passed');
+//    return wait(1);
+//  })
+//  .then(() => console.log('4 seconds passed'));
+
+//way to very easily create a fulfilled or a rejected promise immediately
+//pass in resolved value(consume next)
+//pass in reject value(catch next)
+Promise.resolve('abc').then(x => console.log(x));
+Promise.reject(new Error('Problem!')).catch(x => console.error(x));
+*/
+
+/*
+//////////////////////////////////////////////////////////////
+//PROMISIFYING THE GEOLOCATION API
+
+//callback based API
+//navigator.geolocation.getCurrentPosition(
+//  position => console.log(position),
+//  err => console.error(err)
+//);
+//console.log('Getting position:');
+
+//promisifying
+const getPosition = function () {
+  return new Promise(function (resolve, reject) {
+    //navigator.geolocation.getCurrentPosition(
+    //  position => resolve(position),
+    //  err => reject(err)
+    //);
+    //callbacks automatically assigned to resolve & reject
+    navigator.geolocation.getCurrentPosition(resolve, reject);
+  });
+};
+//consuming the promise
+//getPosition().then(pos => console.log(pos));
+
+//geocoding
+const whereAmI = function (lat, lng) {
+  getPosition()
+    .then(pos => {
+      //console.log(position.coords);//look at how grouped
+      const { latitude: lat, longitude: lng } = pos.coords;
+
+      return fetch(`https://geocode.xyz/${lat},${lng}?geoit=json`);
+    })
+    .then(response => {
+      if (!response.ok)
+        throw new Error(`Problem with geocoding ${response.status}`);
+      return response.json();
+    })
+    .then(data => {
+      console.log(data);
+      console.log(`You are in ${data.city}, ${data.country}.`);
+
+      return fetch(`https://restcountries.com/v2/name/${data.country}`);
+    })
+    .then(response => {
+      if (!response.ok)
+        throw new Error(`Country not found (${response.status})`);
+
+      return response.json();
+    })
+    .then(data => renderCountry(data[0]))
+    .catch(err => console.error(`💥${err.message}💥`))
+    .finally(() => {
+      countriesContainer.style.opacity = 1;
+    });
+};
+
+btn.addEventListener('click', whereAmI);
+*/
+
+///////////////////////////////////////////////////////////////
+//CODING CHALLENGE #2
+
+/* 
+Build the image loading functionality that I just showed you on the screen.
+
+Tasks are not super-descriptive this time, so that you can figure out some stuff on your own. Pretend you're working on your own.
+
+PART 1
+1. Create a function 'createImage' which receives imgPath as an input. This function returns a promise which creates a new image (use document.createElement('img')) and sets the .src attribute to the provided image path. When the image is done loading, append it to the DOM element with the 'images' class, and resolve the promise. The fulfilled value should be the image element itself. In case there is an error loading the image ('error' event), reject the promise.
+
+If this part is too tricky for you, just watch the first part of the solution.
+
+PART 2
+2. Comsume the promise using .then and also add an error handler;
+3. After the image has loaded, pause execution for 2 seconds using the wait function we created earlier;
+4. After the 2 seconds have passed, hide the current image (set display to 'none'), and load a second image (HINT: Use the image element returned by the createImage promise to hide the current image. You will need a global variable for that);
+5. After the second image has loaded, pause execution for 2 seconds again;
+6. After the 2 seconds have passed, hide the current image.
+
+TEST DATA: Images in the img folder. Test the error handler by passing a wrong image path. Set the network speed to 'Fast 3G' in the dev tools Network tab, otherwise images load too fast.
+
+GOOD LUCK!!!
+*/
+
+/*
+const wait = function (seconds) {
+  return new Promise(function (resolve) {
+    setTimeout(resolve, seconds * 1000);
+  });
+};
+
+const imgContainer = document.querySelector('.images');
+
+const createImage = function (imgPath) {
+  return new Promise(function (resolve, reject) {
+    const img = document.createElement('img');
+    img.src = imgPath;
+
+    img.addEventListener('load', function () {
+      imgContainer.append(img);
+      resolve(img);
+    });
+
+    img.addEventListener('error', function () {
+      reject(new Error('Image not found!'));
+    });
+  });
+};
+
+let currentImg;
+
+createImage('img/img-1.jpg')
+  .then(img => {
+    currentImg = img;
+    console.log('Image 1 loaded.');
+    return wait(2);
+  })
+  //wait does not have a defined value ()=no specified parameter in then
+  .then(() => {
+    currentImg.style.display = 'none';
+    return createImage('img/img-2.jpg');
+  })
+  .then(img => {
+    currentImg = img;
+    console.log('Image 1 loaded.');
+    return wait(2);
+  })
+  .then(() => {
+    currentImg.style.display = 'none';
+    return createImage('img/img-3.jpg');
+  })
+  .then(img => {
+    currentImg = img;
+    console.log('Image 1 loaded.');
+    return wait(2);
+  })
+  .then(() => {
+    currentImg.style.display = 'none';
+  })
+  .catch(err => console.error(err));
+*/
+
+///////////////////////////////////////////////////////////
+//CONSUMING PROMISES WITH ASYNC/AWAIT
+
+//ASYNC funtion
+const whereAmI = async function (country) {
+  //fetch(`https://restcountries.com/v2/name/${country}`).then(response =>
+  //console.log(response)
+  //);
+
+  const response = await fetch(`https://restcountries.com/v2/name/${country}`);
+  //returns a promise (await the result of the promise)
+  //not blocking the call stack (running asynchronously behind scence)
+  //console.log(response); //value assigned to response variable
+  const data = await response.json();
+  console.log(data);
+  renderCountry(data[0]);
+};
+
+whereAmI('portugal'); //response logged 2nd
+console.log('FIRST!'); //logged first
